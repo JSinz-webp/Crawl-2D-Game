@@ -20,11 +20,18 @@ public class PlayerController : MonoBehaviour
 
     public Animator animCont;
     public bool isAttacking = false;
+    private bool alive = true;
+    public int health = 3;
+    private bool iFramesActive = false;
 
     InputAction moveAction;
     InputAction attackAction;
 
     public GameObject swordSlash;
+    public GameObject playerSprite;
+
+    private AudioGuy audioGuy;
+    private bool audioDelay = true;
 
     // Start is called before the first frame update
     void Start()
@@ -34,13 +41,22 @@ public class PlayerController : MonoBehaviour
         animCont = GetComponentInChildren<Animator>();
         moveAction = InputSystem.actions.FindAction("Move");
         attackAction = InputSystem.actions.FindAction("DirectionalAttack");
+        health = 3;
+        audioGuy = GameObject.FindGameObjectWithTag("AudioGuy").GetComponent<AudioGuy>();
+        audioDelay = true;
     }
 
     // Update is called once per frame
     void Update()
     {
-        GetInput();
-        AnimateGuy();
+        if (alive)
+        {
+            GetInput();
+            AnimateGuy();
+        } else {
+            Die();
+            AnimateGuy();
+        }
     }
     private void FixedUpdate()
     {
@@ -65,11 +81,21 @@ public class PlayerController : MonoBehaviour
         if (input.magnitude > 0.1f || input.magnitude < -0.1f)
         {
             animCont.SetBool("isMoving", true);
-        }
-        else
-        {
+            if (audioDelay) PlayPatter();
+        } else {
             animCont.SetBool("isMoving", false);
         }
+
+        if (input.x > 0.1f)
+        {
+            playerSprite.transform.localScale = new Vector3(.48f, .48f, .48f);
+        } else {
+            if (input.x < -0.1f) playerSprite.transform.localScale = new Vector3(-.48f, .48f, .48f);
+        }
+
+        animCont.SetInteger("health", health);
+
+        
 
     }
     private async Task IsAttacking()
@@ -84,7 +110,7 @@ public class PlayerController : MonoBehaviour
 
         GameObject spawnedSlash = Instantiate(swordSlash, slashSpawn);
         //spawnedSlash.GetComponent<Animator>().SetBool("isAttacking", true);
-        Debug.Log("hi");
+        //Debug.Log("hi");
 
         //await Awaitable.WaitForSecondsAsync(0.2f);
         await Awaitable.WaitForSecondsAsync(0.8f);
@@ -92,6 +118,41 @@ public class PlayerController : MonoBehaviour
         GameObject.Destroy(spawnedSlash);
         //spawnedSlash.GetComponent<Animator>().SetBool("isAttacking", false);
         isAttacking = false;
+    }
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (collision.gameObject.CompareTag("Health"))
+        {
+            Destroy(collision.gameObject);
+            health += 1;
+        }
+    }
+
+    public async Task TakeDamage()
+    {
+        iFramesActive = true;
+        health -= 1;
+        if (health < 1)
+        {
+            alive = false;
+        }
+        await Awaitable.WaitForSecondsAsync(.5f);
+        iFramesActive = false;
+    }
+
+    private void Die()
+    {
+        input = new Vector2(0, 0);
+        inputA = new Vector2(0, 0);
+    }
+
+    private async Task PlayPatter()
+    {
+        audioDelay = false;
+        audioGuy.PlayPitterPatter();
+        await Awaitable.WaitForSecondsAsync(0.6f);
+        audioDelay = true;
     }
 
 }
